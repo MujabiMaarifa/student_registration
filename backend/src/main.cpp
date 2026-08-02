@@ -1,7 +1,9 @@
+#include <mutex>
 #include "routes/courses.hpp"
 #include "routes/login.hpp"
 #include "routes/registration.hpp"
 #include "utils/utils.hpp"
+#include "crow/middlewares/cors.h"
 
 struct JWTMiddleWare: crow::ILocalMiddleware
 {
@@ -47,9 +49,10 @@ struct JWTMiddleWare: crow::ILocalMiddleware
 
 int main()
 {
-    crow::App<JWTMiddleWare> app;
+    crow::App<crow::CORSHandler, JWTMiddleWare> app;
     //TODO: put this in a dotenv
     pqxx::connection cx{"postgresql://srg_user:student_reg@localhost/student_reg"};
+    std::mutex db_mutex;
 
     CROW_ROUTE(app, "/")
     .CROW_MIDDLEWARES(app, JWTMiddleWare)
@@ -60,12 +63,14 @@ int main()
     CROW_ROUTE(app, "/register")
     .methods("POST"_method)
     ([&](const crow::request& req) {
+        std::lock_guard lock(db_mutex);
         return routes::register_user(cx, req);
     });
 
     CROW_ROUTE(app, "/login")
     .methods("POST"_method)
     ([&](const crow::request& req) {
+        std::lock_guard lock(db_mutex);
         return routes::login(cx, req);
     });
 
@@ -73,6 +78,7 @@ int main()
     .CROW_MIDDLEWARES(app, JWTMiddleWare)
     .methods("GET"_method)
     ([&](const crow::request& req) {
+        std::lock_guard lock(db_mutex);
         return routes::get_registered_courses(cx, req);
     });
 
@@ -80,6 +86,7 @@ int main()
     .CROW_MIDDLEWARES(app, JWTMiddleWare)
     .methods("GET"_method)
     ([&](const crow::request& req) {
+        std::lock_guard lock(db_mutex);
         return routes::get_courses(cx, req);
     });
 
@@ -87,6 +94,7 @@ int main()
     .CROW_MIDDLEWARES(app, JWTMiddleWare)
     .methods("POST"_method)
     ([&](const crow::request& req, std::string course_id) {
+        std::lock_guard lock(db_mutex);
         return routes::register_course(cx, req, course_id);
     });
 
@@ -94,6 +102,7 @@ int main()
     .CROW_MIDDLEWARES(app, JWTMiddleWare)
     .methods("POST"_method)
     ([&](const crow::request& req, std::string course_id) {
+        std::lock_guard lock(db_mutex);
         return routes::drop_course(cx, req, course_id);
     });
 
@@ -101,6 +110,7 @@ int main()
     .CROW_MIDDLEWARES(app, JWTMiddleWare)
     .methods("GET"_method)
     ([&](const crow::request&, std::string course_id) {
+        std::lock_guard lock(db_mutex);
         return routes::get_course_by_id(cx, course_id);
     });
 

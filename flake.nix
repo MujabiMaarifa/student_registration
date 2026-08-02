@@ -20,6 +20,7 @@
               gnumake
               pkg-config
               gcc16
+              nodejs
             ];
 
             buildInputs = with pkgs; [
