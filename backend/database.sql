@@ -1,5 +1,6 @@
+-- Stores student registration records
 CREATE TABLE IF NOT EXISTS students (
-    student_id    VARCHAR(50)   PRIMARY KEY,
+    student_id    VARCHAR(50)   PRIMARY KEY, -- id: primary key, auto-incremented
     first_name    VARCHAR(100),
     last_name     VARCHAR(100),
     email         VARCHAR(100)  UNIQUE,
@@ -15,7 +16,8 @@ CREATE TABLE IF NOT EXISTS departments (
     faculty     VARCHAR(100) NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS courses (
+-- Stores course registered records
+CREATE TABLE IF NOT EXISTS courses(
     course_id       VARCHAR(20) PRIMARY KEY,
     dept_code       VARCHAR(10) NOT NULL,
     course_name     VARCHAR(150) NOT NULL,
@@ -28,7 +30,7 @@ CREATE TABLE IF NOT EXISTS courses (
     end_time        TIME NOT NULL,
     room            VARCHAR(20),
     is_active       BOOLEAN NOT NULL DEFAULT TRUE,
-    FOREIGN KEY (dept_code) REFERENCES departments(dept_code)
+    FOREIGN KEY (dept_code) REFERENCES departments(dept_code) -- student_id: FK referencing students table
 );
 
 CREATE TABLE IF NOT EXISTS registrations (
