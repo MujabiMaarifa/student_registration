@@ -4,6 +4,7 @@
 		getCourses,
 		getRegisteredCourses,
 		registerForCourse,
+		dropCourse,
 		isAuthenticated,
 		type Course,
 		type Registration
@@ -36,9 +37,11 @@
 			else error = coursesData.error || 'Failed to load courses';
 
 			if (regRes.ok) {
+				const next: Record<string, Registration> = {};
 				for (const r of regData) {
-					registeredMap[r.course_id] = r;
+					next[r.course_id] = r;
 				}
+				registeredMap = next;
 			}
 		} catch {
 			error = 'Could not connect to server';
@@ -54,9 +57,6 @@
 		if (filter === 'registered') {
 			return courses.filter((c) => registeredMap[c.course_id]?.status === 'active');
 		}
-		if (filter === 'dropped') {
-			return courses.filter((c) => registeredMap[c.course_id]?.status === 'dropped');
-		}
 		return courses;
 	});
 
@@ -67,6 +67,17 @@
 			await loadData();
 		} else {
 			alert(data.error || 'Registration failed');
+		}
+	}
+
+	async function handleDrop(courseId: string) {
+		if (!confirm('Are you sure you want to drop this course?')) return;
+		const res = await dropCourse(courseId);
+		const data = await res.json();
+		if (res.ok) {
+			await loadData();
+		} else {
+			alert(data.error || 'Failed to drop course');
 		}
 	}
 
@@ -87,7 +98,7 @@
 
 	<div class="mb-6 flex flex-wrap items-center gap-3">
 		<span class="text-sm font-medium text-gray-600 dark:text-gray-400">Filter by:</span>
-		{#each ['available', 'registered', 'dropped'] as f (f)}
+		{#each ['available', 'registered'] as f (f)}
 			<button
 				onclick={() => (filter = f)}
 				class="cursor-pointer rounded-full px-4 py-1.5 text-sm font-medium transition-colors {filter ===
@@ -137,12 +148,22 @@
 					</p>
 
 					{#if registeredMap[course.course_id]}
-						<a
-							href={'/courses/' + course.course_id}
-							class="inline-block text-sm font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
-						>
-							See more &rarr;
-						</a>
+						<div class="flex items-center gap-3">
+							<a
+								href={'/courses/' + course.course_id}
+								class="inline-block text-sm font-medium text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
+							>
+								See more &rarr;
+							</a>
+							{#if registeredMap[course.course_id].status === 'active'}
+								<button
+									onclick={() => handleDrop(course.course_id)}
+									class="cursor-pointer rounded-md border border-red-200 px-3 py-1 text-sm font-medium text-red-600 hover:bg-red-50 dark:border-red-900/50 dark:text-red-400 dark:hover:bg-red-900/30"
+								>
+									Drop
+								</button>
+							{/if}
+						</div>
 					{:else}
 						<div class="flex items-center gap-2">
 							<button

@@ -31,14 +31,26 @@ namespace utils
         return std::nullopt;
     }
 
-    std::string jwt_create(const std::string_view& str)
+    std::string jwt_create(const std::string& id, const std::string& role)
     {
+        std::string claim_name = role == "lecturer" ? "lecturer_id" : "student_id";
         auto token = jwt::create()
                          .set_issuer("auth0")
                          .set_type("JWS")
-                         .set_payload_claim("student_id", jwt::claim(std::string(str)))
+                         .set_payload_claim(claim_name, jwt::claim(id))
+                         .set_payload_claim("role", jwt::claim(role))
                          .sign(jwt::algorithm::hs256{"secret"});
         return token;
+    }
+
+    std::optional<std::string> get_jwt_claim(const crow::request& req, const std::string& claim)
+    {
+        std::string myauth = req.get_header_value("Authorization");
+        if (myauth.size() < 7) return std::nullopt;
+        std::string token = myauth.substr(7);
+        auto decoded = jwt::decode(token);
+        if (!decoded.has_payload_claim(claim)) return std::nullopt;
+        return decoded.get_payload_claim(claim).as_string();
     }
 
     std::vector<std::string_view> split_string(const std::string& s1, const std::string& del)

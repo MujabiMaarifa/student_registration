@@ -30,9 +30,12 @@
 				return;
 			}
 			const payload = decodeJwtPayload(data.token);
-			const studentId = (payload.student_id as string) || email;
-			setAuth(data.token, studentId);
-			goto('/courses');
+			const role = data.role || 'student';
+			const userId =
+				(role === 'lecturer' ? (payload.lecturer_id as string) : (payload.student_id as string)) ||
+				email;
+			setAuth(data.token, userId, role);
+			goto(role === 'lecturer' ? '/lecturer/courses' : '/courses');
 		} catch {
 			error = 'Could not connect to server';
 		} finally {

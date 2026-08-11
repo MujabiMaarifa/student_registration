@@ -1,5 +1,6 @@
 #include <mutex>
 #include "routes/courses.hpp"
+#include "routes/lecturer.hpp"
 #include "routes/login.hpp"
 #include "routes/registration.hpp"
 #include "utils/utils.hpp"
@@ -23,12 +24,20 @@ struct JWTMiddleWare: crow::ILocalMiddleware
          {
              auto decoded = jwt::decode(token);
              utils::jwt_verify(decoded);
-             auto student_id = decoded.get_payload_claim("student_id").as_string();
-             if (student_id.empty())
+             if (!decoded.has_payload_claim("role"))
              {
                  res.code = 400;
                  res.write("Bad Request: malformed jwt");
                  res.end();
+                 return;
+             }
+             auto role = decoded.get_payload_claim("role").as_string();
+             if (role != "student" && role != "lecturer")
+             {
+                 res.code = 400;
+                 res.write("Bad Request: malformed jwt");
+                 res.end();
+                 return;
              }
          }
          catch (const jwt::error::token_verification_exception& e) 
@@ -72,6 +81,29 @@ int main()
     ([&](const crow::request& req) {
         std::lock_guard lock(db_mutex);
         return routes::login(cx, req);
+    });
+
+    CROW_ROUTE(app, "/lecturer/register")
+    .methods("POST"_method)
+    ([&](const crow::request& req) {
+        std::lock_guard lock(db_mutex);
+        return routes::register_lecturer(cx, req);
+    });
+
+    CROW_ROUTE(app, "/courses")
+    .CROW_MIDDLEWARES(app, JWTMiddleWare)
+    .methods("POST"_method)
+    ([&](const crow::request& req) {
+        std::lock_guard lock(db_mutex);
+        return routes::create_course(cx, req);
+    });
+
+    CROW_ROUTE(app, "/lecturer/courses")
+    .CROW_MIDDLEWARES(app, JWTMiddleWare)
+    .methods("GET"_method)
+    ([&](const crow::request& req) {
+        std::lock_guard lock(db_mutex);
+        return routes::get_lecturer_courses(cx, req);
     });
 
     CROW_ROUTE(app, "/courses/registered")

@@ -12,23 +12,44 @@ namespace routes
         pqxx::work tx{cx};
         try
         {
-            pqxx::result result{tx.exec(
-                "select * from students where email = $1",
-                pqxx::params{body["email"].get<std::string>()}
-            )};
-
-            if (result.empty())
-                return crow::response(404, json{{"error", "user not found"}}.dump());
-
-            auto row = result.front();
-            auto user_password = row["password_hash"].c_str();
+            std::string email    = body["email"].get<std::string>();
             std::string password = body["password"].get<std::string>();
 
-            if (crypto_pwhash_str_verify(user_password, password.c_str(), password.size()) != 0)
-                return crow::response(401, json{{"error", "wrong password"}}.dump());
+            pqxx::result result{tx.exec(
+                "select * from students where email = $1",
+                pqxx::params{email}
+            )};
 
-            auto token = utils::jwt_create(row["student_id"].c_str());
-            return crow::response(200, json{{"success", true}, {"token", token}}.dump());
+            if (!result.empty())
+            {
+                auto row = result.front();
+                auto user_password = row["password_hash"].c_str();
+
+                if (crypto_pwhash_str_verify(user_password, password.c_str(), password.size()) != 0)
+                    return crow::response(401, json{{"error", "wrong password"}}.dump());
+
+                auto token = utils::jwt_create(row["student_id"].c_str(), "student");
+                return crow::response(200, json{{"success", true}, {"token", token}, {"role", "student"}}.dump());
+            }
+
+            pqxx::result lec_result{tx.exec(
+                "select * from lecturers where email = $1",
+                pqxx::params{email}
+            )};
+
+            if (!lec_result.empty())
+            {
+                auto row = lec_result.front();
+                auto user_password = row["password_hash"].c_str();
+
+                if (crypto_pwhash_str_verify(user_password, password.c_str(), password.size()) != 0)
+                    return crow::response(401, json{{"error", "wrong password"}}.dump());
+
+                auto token = utils::jwt_create(row["lecturer_id"].c_str(), "lecturer");
+                return crow::response(200, json{{"success", true}, {"token", token}, {"role", "lecturer"}}.dump());
+            }
+
+            return crow::response(404, json{{"error", "user not found"}}.dump());
         }
         catch (pqxx::failure const &e)
         {

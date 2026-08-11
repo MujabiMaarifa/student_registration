@@ -12,6 +12,7 @@ namespace routes
                         {"email",      json::value_t::string},
                         {"password",   json::value_t::string},
                         {"year_of_study", json::value_t::number_unsigned},
+                        {"dept_code",  json::value_t::string},
                     });
         if (err) return std::move(err.value());
         pqxx::work tx{cx};
@@ -25,15 +26,16 @@ namespace routes
         {
             tx.exec(
                 "INSERT INTO students "
-                "(student_id, first_name, last_name, email, password_hash, year_of_study) "
-                "VALUES ($1, $2, $3, $4, $5, $6)",
+                "(student_id, first_name, last_name, email, password_hash, year_of_study, dept_code) "
+                "VALUES ($1, $2, $3, $4, $5, $6, $7)",
                 pqxx::params{
                     body["student_id"].get<std::string>(),
                     body["first_name"].get<std::string>(),
                     body["last_name"].get<std::string>(),
                     body["email"].get<std::string>(),
                     password_hash,
-                    body["year_of_study"].get<int>()
+                    body["year_of_study"].get<int>(),
+                    body["dept_code"].get<std::string>()
                 }
             );
             tx.commit();
@@ -41,6 +43,10 @@ namespace routes
         catch (pqxx::unique_violation const &e)
         {
             return crow::response(409, json{{"error", "Student already exists"}}.dump());
+        }
+        catch (pqxx::foreign_key_violation const &e)
+        {
+            return crow::response(400, json{{"error", "Department does not exist"}}.dump());
         }
         catch (pqxx::failure const &e)
         {

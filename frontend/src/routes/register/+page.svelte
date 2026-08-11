@@ -1,13 +1,16 @@
 <script lang="ts">
-	import { registerStudent } from '$lib/api';
+	import { registerStudent, registerLecturer } from '$lib/api';
 	import { goto } from '$app/navigation';
 
+	let role = $state<'student' | 'lecturer'>('student');
 	let student_id = $state('');
+	let lecturer_id = $state('');
 	let first_name = $state('');
 	let last_name = $state('');
 	let email = $state('');
 	let password = $state('');
 	let year_of_study = $state(1);
+	let dept_code = $state('');
 	let error = $state('');
 	let loading = $state(false);
 
@@ -16,14 +19,25 @@
 		error = '';
 		loading = true;
 		try {
-			const res = await registerStudent({
-				student_id,
-				first_name,
-				last_name,
-				email,
-				password,
-				year_of_study
-			});
+			const res =
+				role === 'lecturer'
+					? await registerLecturer({
+							lecturer_id,
+							first_name,
+							last_name,
+							email,
+							password,
+							dept_code
+						})
+					: await registerStudent({
+							student_id,
+							first_name,
+							last_name,
+							email,
+							password,
+							year_of_study,
+							dept_code
+						});
 			const data = await res.json();
 			if (!res.ok) {
 				error = data.error || 'Registration failed';
@@ -42,21 +56,56 @@
 	<div class="w-full max-w-md rounded-2xl bg-white p-8 shadow-lg dark:bg-gray-900">
 		<div class="mb-8 text-center">
 			<h1 class="text-2xl font-bold text-gray-900 dark:text-white">Create Account</h1>
-			<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Register as a new student</p>
+			<p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+				Register as a {role === 'lecturer' ? 'lecturer' : 'student'}
+			</p>
+		</div>
+
+		<div class="mb-6 grid grid-cols-2 gap-2 rounded-lg bg-gray-100 p-1 dark:bg-white/5">
+			<button
+				type="button"
+				onclick={() => (role = 'student')}
+				class="cursor-pointer rounded-md px-4 py-2 text-sm font-medium transition-colors {role ===
+				'student'
+					? 'bg-white text-gray-900 shadow dark:bg-white/10 dark:text-white'
+					: 'text-gray-600 hover:text-gray-900 dark:text-gray-400'}"
+			>
+				Student
+			</button>
+			<button
+				type="button"
+				onclick={() => (role = 'lecturer')}
+				class="cursor-pointer rounded-md px-4 py-2 text-sm font-medium transition-colors {role ===
+				'lecturer'
+					? 'bg-white text-gray-900 shadow dark:bg-white/10 dark:text-white'
+					: 'text-gray-600 hover:text-gray-900 dark:text-gray-400'}"
+			>
+				Lecturer
+			</button>
 		</div>
 
 		<form onsubmit={handleRegister} class="space-y-4">
 			<div>
-				<label for="student_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300"
-					>Student ID</label
-				>
-				<input
-					id="student_id"
-					type="text"
-					bind:value={student_id}
-					required
-					class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-white/10 dark:bg-white/5 dark:text-white"
-				/>
+				<label for="user_id" class="block text-sm font-medium text-gray-700 dark:text-gray-300">
+					{role === 'lecturer' ? 'Lecturer ID' : 'Student ID'}
+				</label>
+				{#if role === 'lecturer'}
+					<input
+						id="user_id"
+						type="text"
+						bind:value={lecturer_id}
+						required
+						class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-white/10 dark:bg-white/5 dark:text-white"
+					/>
+				{:else}
+					<input
+						id="user_id"
+						type="text"
+						bind:value={student_id}
+						required
+						class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-white/10 dark:bg-white/5 dark:text-white"
+					/>
+				{/if}
 			</div>
 
 			<div class="grid grid-cols-2 gap-4">
@@ -112,21 +161,50 @@
 				/>
 			</div>
 
-			<div>
-				<label
-					for="year_of_study"
-					class="block text-sm font-medium text-gray-700 dark:text-gray-300">Year of Study</label
-				>
-				<select
-					id="year_of_study"
-					bind:value={year_of_study}
-					class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-white/10 dark:bg-white/5 dark:text-white"
-				>
-					{#each [1, 2, 3, 4, 5, 6] as year (year)}
-						<option value={year}>Year {year}</option>
-					{/each}
-				</select>
-			</div>
+			{#if role === 'student'}
+				<div>
+					<label for="dept_code" class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+						>Department Code</label
+					>
+					<input
+						id="dept_code"
+						type="text"
+						bind:value={dept_code}
+						placeholder="e.g. C026"
+						required
+						class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-white/10 dark:bg-white/5 dark:text-white"
+					/>
+				</div>
+				<div>
+					<label
+						for="year_of_study"
+						class="block text-sm font-medium text-gray-700 dark:text-gray-300">Year of Study</label
+					>
+					<select
+						id="year_of_study"
+						bind:value={year_of_study}
+						class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-white/10 dark:bg-white/5 dark:text-white"
+					>
+						{#each [1, 2, 3, 4, 5, 6] as year (year)}
+							<option value={year}>Year {year}</option>
+						{/each}
+					</select>
+				</div>
+			{:else}
+				<div>
+					<label for="dept_code" class="block text-sm font-medium text-gray-700 dark:text-gray-300"
+						>Department Code</label
+					>
+					<input
+						id="dept_code"
+						type="text"
+						bind:value={dept_code}
+						placeholder="e.g. CSCI"
+						required
+						class="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-4 py-2.5 text-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 dark:border-white/10 dark:bg-white/5 dark:text-white"
+					/>
+				</div>
+			{/if}
 
 			{#if error}
 				<div

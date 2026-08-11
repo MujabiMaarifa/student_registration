@@ -10,6 +10,7 @@ export interface Course {
 	start_time: string;
 	end_time: string;
 	room: string;
+	lecturer_id?: string;
 	is_active: boolean;
 }
 
@@ -39,17 +40,25 @@ function getToken(): string | null {
 
 export function getStudentId(): string | null {
 	if (typeof localStorage === 'undefined') return null;
-	return localStorage.getItem('student_id');
+	return localStorage.getItem('user_id') || localStorage.getItem('student_id');
 }
 
-export function setAuth(token: string, studentId: string) {
+export function getRole(): string | null {
+	if (typeof localStorage === 'undefined') return null;
+	return localStorage.getItem('role');
+}
+
+export function setAuth(token: string, userId: string, role: string) {
 	localStorage.setItem('token', token);
-	localStorage.setItem('student_id', studentId);
+	localStorage.setItem('user_id', userId);
+	localStorage.setItem('role', role);
 }
 
 export function clearAuth() {
 	localStorage.removeItem('token');
+	localStorage.removeItem('user_id');
 	localStorage.removeItem('student_id');
+	localStorage.removeItem('role');
 }
 
 export function isAuthenticated(): boolean {
@@ -68,18 +77,6 @@ async function request(path: string, options: RequestInit = {}): Promise<Respons
 	return fetch(`${API_BASE}${path}`, { ...options, headers });
 }
 
-function decodeJwtPayload(token: string): Record<string, unknown> {
-	try {
-		const parts = token.split('.');
-		if (parts.length !== 3) return {};
-		const payload = parts[1];
-		const decoded = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
-		return JSON.parse(decoded);
-	} catch {
-		return {};
-	}
-}
-
 export async function login(email: string, password: string) {
 	return request('/login', {
 		method: 'POST',
@@ -94,11 +91,47 @@ export async function registerStudent(data: {
 	email: string;
 	password: string;
 	year_of_study: number;
+	dept_code: string;
 }) {
 	return request('/register', {
 		method: 'POST',
 		body: JSON.stringify(data)
 	});
+}
+
+export async function registerLecturer(data: {
+	lecturer_id: string;
+	first_name: string;
+	last_name: string;
+	email: string;
+	password: string;
+	dept_code: string;
+}) {
+	return request('/lecturer/register', {
+		method: 'POST',
+		body: JSON.stringify(data)
+	});
+}
+
+export async function createCourse(data: {
+	course_id: string;
+	course_name: string;
+	description?: string;
+	capacity: number;
+	semester: string;
+	day_of_week: string;
+	start_time: string;
+	end_time: string;
+	room?: string;
+}) {
+	return request('/courses', {
+		method: 'POST',
+		body: JSON.stringify(data)
+	});
+}
+
+export async function getLecturerCourses() {
+	return request('/lecturer/courses');
 }
 
 export async function getCourses() {
@@ -111,6 +144,12 @@ export async function getCourse(courseId: string) {
 
 export async function registerForCourse(courseId: string) {
 	return request(`/courses/${courseId}/register`, {
+		method: 'POST'
+	});
+}
+
+export async function dropCourse(courseId: string) {
+	return request(`/courses/${courseId}/drop`, {
 		method: 'POST'
 	});
 }

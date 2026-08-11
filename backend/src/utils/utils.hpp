@@ -25,7 +25,9 @@ namespace utils
          verifier.verify(decoded_token);
     }
 
-    std::string jwt_create(const std::string_view& str);
+    std::string jwt_create(const std::string& id, const std::string& role);
+
+    std::optional<std::string> get_jwt_claim(const crow::request& req, const std::string& claim);
 
     std::vector<std::string_view> split_string(const std::string& s1, const std::string& del);
 }

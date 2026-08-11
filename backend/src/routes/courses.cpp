@@ -1,11 +1,21 @@
 #include "courses.hpp"
 
-static std::string get_student_id(const crow::request& req)
+static std::optional<std::string> get_student_id(const crow::request& req)
 {
-    std::string myauth = req.get_header_value("Authorization");
-    std::string token  = myauth.substr(7);
-    auto decoded = jwt::decode(token);
-    return decoded.get_payload_claim("student_id").as_string();
+    auto role = utils::get_jwt_claim(req, "role");
+    if (!role || *role != "student") return std::nullopt;
+    return utils::get_jwt_claim(req, "student_id");
+}
+
+static std::optional<std::string> get_student_dept(pqxx::connection& cx, const std::string& student_id)
+{
+    pqxx::work tx{cx};
+    pqxx::result rows{tx.exec(
+        "SELECT dept_code FROM students WHERE student_id = $1",
+        pqxx::params{student_id}
+    )};
+    if (rows.empty() || rows[0]["dept_code"].is_null()) return std::nullopt;
+    return rows[0]["dept_code"].as<std::string>();
 }
 
 namespace routes
@@ -33,7 +43,7 @@ namespace routes
             course["end_time"]       = rows[0]["end_time"].as<std::string>();
             course["room"]           = rows[0]["room"].is_null() ? "" : rows[0]["room"].as<std::string>();
             course["is_active"]      = rows[0]["is_active"].as<bool>();
-            return crow::response(200, json{course}.dump());
+            return crow::response(200, json(course).dump());
         }
         catch (pqxx::failure const &e)
         {
@@ -49,18 +59,17 @@ namespace routes
     crow::response get_courses(pqxx::connection& cx, const crow::request& req)
     {
         auto student_id = get_student_id(req);
-        auto dept_code  = utils::split_string(student_id, "-")[0];
-        if (dept_code.size() != 4)
-        {
-            return crow::response(400, json{{"error", 
-                   std::format("malformed department code {}", dept_code)}}.dump());
-        }
+        if (!student_id)
+            return crow::response(403, json{{"error", "Only students can view courses"}}.dump());
+        auto dept_code = get_student_dept(cx, *student_id);
+        if (!dept_code)
+            return crow::response(400, json{{"error", "Student has no department"}}.dump());
         std::vector<json> courses;
         pqxx::work tx{cx};
         try
         {
             pqxx::result rows{
-                tx.exec("SELECT * FROM courses WHERE dept_code = $1", pqxx::params{dept_code})
+                tx.exec("SELECT * FROM courses WHERE dept_code = $1", pqxx::params{*dept_code})
             };
 
             for (const auto& row : rows)
@@ -80,7 +89,7 @@ namespace routes
                 course["is_active"]      = row["is_active"].as<bool>();
                 courses.emplace_back(course);
             }
-            return crow::response(200, json{courses}.dump());
+            return crow::response(200, json(courses).dump());
         }
         catch (pqxx::failure const &e)
         {
@@ -96,12 +105,16 @@ namespace routes
     crow::response register_course(pqxx::connection& cx, const crow::request& req, std::string course_id)
     {
         auto student_id = get_student_id(req);
-        auto dept_code  = utils::split_string(student_id, "-")[0];
+        if (!student_id)
+            return crow::response(403, json{{"error", "Only students can register for courses"}}.dump());
+        auto dept_code = get_student_dept(cx, *student_id);
+        if (!dept_code)
+            return crow::response(400, json{{"error", "Student has no department"}}.dump());
         pqxx::work tx{cx};
         try
         {
             pqxx::result rows{
-                tx.exec("SELECT * FROM courses WHERE dept_code = $1 AND course_id = $2", pqxx::params{dept_code, course_id})
+                tx.exec("SELECT * FROM courses WHERE dept_code = $1 AND course_id = $2", pqxx::params{*dept_code, course_id})
             };
             if (rows.empty())
             {
@@ -113,7 +126,7 @@ namespace routes
             {
                 return crow::response(400, json{{"error", "Course is full"}}.dump());
             }
-            tx.exec("INSERT INTO registrations (student_id, course_id) VALUES ($1, $2)", pqxx::params{student_id, course_id});
+            tx.exec("INSERT INTO registrations (student_id, course_id) VALUES ($1, $2)", pqxx::params{*student_id, course_id});
             tx.commit();
             return crow::response(201, json{{"success", true}}.dump());
         }
@@ -135,10 +148,12 @@ namespace routes
     crow::response drop_course(pqxx::connection& cx, const crow::request& req, std::string course_id)
     {
         auto student_id = get_student_id(req);
+        if (!student_id)
+            return crow::response(403, json{{"error", "Only students can drop courses"}}.dump());
         pqxx::work tx{cx};
         try
         {
-            tx.exec("DELETE FROM registrations WHERE student_id = $1 AND course_id = $2", pqxx::params{student_id, course_id});
+            tx.exec("DELETE FROM registrations WHERE student_id = $1 AND course_id = $2", pqxx::params{*student_id, course_id});
             tx.commit();
             return crow::response(200, json{{"success", true}}.dump());
         }
@@ -156,6 +171,8 @@ namespace routes
     crow::response get_registered_courses(pqxx::connection& cx, const crow::request& req)
     {
         auto student_id = get_student_id(req);
+        if (!student_id)
+            return crow::response(403, json{{"error", "Only students can view their registrations"}}.dump());
         pqxx::work tx{cx};
         std::vector<json> courses;
         try
@@ -165,7 +182,7 @@ namespace routes
                 "FROM registrations r "
                 "JOIN courses c ON r.course_id = c.course_id "
                 "WHERE r.student_id = $1",
-                pqxx::params{student_id}
+                pqxx::params{*student_id}
             )};
             for (const auto& row : rows)
             {
@@ -186,7 +203,7 @@ namespace routes
                 course["status"]         = row["status"].as<std::string>();
                 courses.emplace_back(course);
             }
-            return crow::response(200, json{courses}.dump());
+            return crow::response(200, json(courses).dump());
         }
         catch (pqxx::failure const &e)
         {

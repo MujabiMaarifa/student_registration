@@ -5,6 +5,7 @@
 		getCourse,
 		getRegisteredCourses,
 		registerForCourse,
+		dropCourse,
 		isAuthenticated,
 		type Course,
 		type Registration
@@ -65,6 +66,18 @@
 			alert(data.error || 'Registration failed');
 		}
 	}
+
+	async function handleDrop() {
+		if (!course_id) return;
+		if (!confirm('Are you sure you want to drop this course?')) return;
+		const res = await dropCourse(course_id);
+		const data = await res.json();
+		if (res.ok) {
+			await loadData();
+		} else {
+			alert(data.error || 'Failed to drop course');
+		}
+	}
 </script>
 
 <div class="mx-auto max-w-4xl px-4 py-8">
@@ -111,7 +124,9 @@
 				</div>
 				<div>
 					<span class="text-gray-500 dark:text-gray-400">Schedule:</span>
-					<span class="ml-1 font-medium text-gray-900 dark:text-white">{course.day_of_week} {course.start_time} - {course.end_time}</span>
+					<span class="ml-1 font-medium text-gray-900 dark:text-white"
+						>{course.day_of_week} {course.start_time} - {course.end_time}</span
+					>
 				</div>
 				<div>
 					<span class="text-gray-500 dark:text-gray-400">Room:</span>
@@ -119,11 +134,20 @@
 				</div>
 				<div>
 					<span class="text-gray-500 dark:text-gray-400">Capacity:</span>
-					<span class="ml-1 font-medium text-gray-900 dark:text-white">{course.enrolled_count}/{course.capacity}</span>
+					<span class="ml-1 font-medium text-gray-900 dark:text-white"
+						>{course.enrolled_count}/{course.capacity}</span
+					>
 				</div>
 			</div>
 
-			{#if !registration}
+			{#if registration && registration.status === 'active'}
+				<button
+					onclick={handleDrop}
+					class="rounded-lg bg-red-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-red-700"
+				>
+					Drop course
+				</button>
+			{:else if !registration}
 				<button
 					onclick={handleRegister}
 					class="rounded-lg bg-indigo-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
