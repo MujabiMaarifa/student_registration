@@ -29,5 +29,7 @@ namespace utils
 
     std::optional<std::string> get_jwt_claim(const crow::request& req, const std::string& claim);
 
+    std::string normalize_dept_code(const std::string& code);
+
     std::vector<std::string_view> split_string(const std::string& s1, const std::string& del);
 }

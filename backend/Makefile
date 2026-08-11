@@ -22,7 +22,13 @@ $(TARGET): $(OBJS)
 serve: $(TARGET)
 	./$(TARGET)
 
+db-setup:
+	PGPASSWORD=student_reg psql -h localhost -U srg_user -d student_reg -f database.sql -f database_seed.sql
+
+db-seed:
+	PGPASSWORD=student_reg psql -h localhost -U srg_user -d student_reg -f database_seed.sql
+
 clean:
 	rm -rf build
 
-.PHONY: serve clean build
+.PHONY: serve clean build db-setup db-seed

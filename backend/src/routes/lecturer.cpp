@@ -7,7 +7,7 @@ static std::optional<std::string> get_lecturer_id(const crow::request& req)
     return utils::get_jwt_claim(req, "lecturer_id");
 }
 
-static json course_to_json(const pqxx::row& row)
+static json course_to_json(const pqxx::row_ref& row)
 {
     json course;
     course["course_id"]      = row["course_id"].as<std::string>();
@@ -50,6 +50,7 @@ namespace routes
             return crow::response(503, json{{"error", "Server out of resources"}}.dump());
         try
         {
+            std::string dept_code = utils::normalize_dept_code(body["dept_code"].get<std::string>());
             tx.exec(
                 "INSERT INTO lecturers "
                 "(lecturer_id, first_name, last_name, email, password_hash, dept_code) "
@@ -60,7 +61,7 @@ namespace routes
                     body["last_name"].get<std::string>(),
                     body["email"].get<std::string>(),
                     password_hash,
-                    body["dept_code"].get<std::string>()
+                    dept_code
                 }
             );
             tx.commit();

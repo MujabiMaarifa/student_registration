@@ -24,6 +24,7 @@ namespace routes
             return crow::response(503, json{{"error", "Server out of resources"}}.dump());
         try
         {
+            std::string dept_code = utils::normalize_dept_code(body["dept_code"].get<std::string>());
             tx.exec(
                 "INSERT INTO students "
                 "(student_id, first_name, last_name, email, password_hash, year_of_study, dept_code) "
@@ -35,7 +36,7 @@ namespace routes
                     body["email"].get<std::string>(),
                     password_hash,
                     body["year_of_study"].get<int>(),
-                    body["dept_code"].get<std::string>()
+                    dept_code
                 }
             );
             tx.commit();

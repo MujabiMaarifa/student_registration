@@ -1,4 +1,5 @@
 #include "utils.hpp"
+#include <cctype>
 namespace utils
 {
     std::optional<crow::response> validate_json_body(
@@ -51,6 +52,18 @@ namespace utils
         auto decoded = jwt::decode(token);
         if (!decoded.has_payload_claim(claim)) return std::nullopt;
         return decoded.get_payload_claim(claim).as_string();
+    }
+
+    std::string normalize_dept_code(const std::string& code)
+    {
+        std::string out;
+        out.reserve(code.size());
+        for (char c : code)
+        {
+            if (std::isspace(static_cast<unsigned char>(c))) continue;
+            out += static_cast<char>(std::toupper(static_cast<unsigned char>(c)));
+        }
+        return out;
     }
 
     std::vector<std::string_view> split_string(const std::string& s1, const std::string& del)
